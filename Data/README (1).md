@@ -1,4 +1,4 @@
-# Project
+# Project README
 This is a final project for the foundations of data analytics class. It includes nearly a thousand observations of ten different columns: 
   meta score
   user score
