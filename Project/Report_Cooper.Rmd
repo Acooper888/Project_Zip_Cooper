@@ -1,0 +1,277 @@
+---
+title: "Final Project Report"
+author: "Adam Cooper"
+date: "2025-11-09"
+output: html_document
+---
+
+## Library Section
+
+```{r}
+library("tidyverse")
+library(lubridate)
+```
+
+## Summary
+
+  This report consists of analyzing the data about various Nintendo games to answer the question if the developers that work with Nintendo regularly consistently work on the same genre. While doing this, data was cleaned to ensure no repeat variables. It takes in the developer and genre values, compares them, then returns a list of Boolean values to see if the data is consistent or not. If a Majority is TRUE, then yes. If not, then we will consider it not consistent.
+  
+  The answer was ultimately no, it was no consistent. This is likely because Nintendo prioritizes the making of the game as opposed to the genre of it.
+
+## Purpose
+
+  The main goal of this is first, to see if there are developers who tend to focus on specific genres of games by focusing on Nintendo game brands, and second, to see if any games made by Nintendo themselves tend to work with an additional developer when branching into new genres. I can find these my comparing columns to see if the same developers work on the same columns, and if when Nintendo develops games in new genres, they work with an additional developer or on their own. This begins with analyzing the data first.
+
+## Data
+
+```{r}
+Nintendo <- read.csv("data.csv")
+BetterNintendo <- Nintendo %>%
+  select(title, date, developers, genres, user_score) %>%
+  drop_na() %>%
+  filter(!date %in% c("TBA", "TBA 2010", "TBA 2011", "Canceled")) %>%
+  mutate(
+    date = mdy(date),       
+    genres = as.factor(genres),        
+    developers = as.factor(developers) 
+  ) %>%
+  mutate(developers = gsub("\\[|\\]", "", developers)) %>%
+  mutate(genres = gsub("\\[|\\]", "", genres))
+```
+  This is the data I am currently working with. Because most of the DLC comes with expansion to gameplay I have decided to keep those observations: though observations that are not games in the slightest have been removed.
+```{r}
+dim(BetterNintendo)
+```
+There are five variables and 774 observations. Below is what each of them contain.
+
+#### Description of Data set
+
+  The data is a edited version of Nintendo games data, removing the values that are not title, data, developers, genre, and user_score. The developer and genre values that had brackets attached on account of being the first or last value in the list had the brackets removed. The data is as follows:
+  
+> The Title category is fairly straightforward: it is the title of the game/dlc. String Values. 
+
+> date: The day, month, and year the game came out in. String Values, but with the nulls, TBDs and Cancelled remove from it, it could be converted to numeric. Changed to Datetime with mdy. This is used for finding context for how companies change over time.
+
+> Developers: The developer(s) of the game/dlc. String Values. Brackets removed with gsub.
+
+> Genres: The genre of the game. Most relevant to the project, since it is an investigation into if Nintendo tends to partner with the same companies for the same genres. String Values, in vectors. Brackets removed with gsub.
+
+>User Score: How the users generally felt about the games on a scale of one to ten. Useful to see if public reception tends to affect the rate of partnerships between companies. Numeric values. This shall be useful in checking for outliers that may have been missed.
+
+  None of these values truly have any units, though they were nulls values that needed to be dealt with.
+
+#### Null Values
+
+  There were null values in every single column that remained, so they were removed. Many developers were not listed, some genres were not listed, some titles were not listed, and these three categories are all vital to the end objective of the project. Additionally, where there were no values for date or user_score, those observations were removed as well for lacking context. For example, Pokemon Home had the lowest user score, but Pokemon Home is a app that is an appendage to Pokemon games, not its own game. 
+
+#### Orientation change
+
+  There were no orientation changes. Columns and rows were removed, but the format remains the same. It was already prepared for the following data analysis.
+
+## Exploratory Data Analysis
+```{r}
+Genre_Counts <- BetterNintendo %>%
+  separate_rows(genres, sep = ", ") %>%
+  mutate(
+    genres = gsub("\\[|\\]", "", genres),
+    genres = trimws(genres),  
+    genres = str_to_lower(genres),
+    genres = ifelse(genres %in% c("'general'", "'miscellaneous'"), "general/miscellaneous", genres)
+  ) %>%
+  group_by(genres) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+
+
+Top10_Genres <- Genre_Counts %>%
+  slice_max(order_by = count, n = 11)
+
+
+Bottom10_Genres <- Genre_Counts %>%
+  slice_min(order_by = count, n = 10)
+```
+  This code separates the Genres into their top ten and bottom ten most and least common. This is to show some problems in the dataset that will need to be adressed.
+```{r}
+ggplot(Top10_Genres, aes(x = reorder(genres, count), y = count)) +
+  geom_bar(stat = "identity", fill = "darkred") +
+  coord_flip() +
+  labs(title = "Top 10 Nintendo Genres",
+       x = "Genre",
+       y = "Count")
+
+
+ggplot(Bottom10_Genres, aes(x = reorder(genres, count), y = count)) +
+  geom_bar(stat = "identity", fill = "darkblue") +
+  coord_flip() +
+  labs(title = "Bottom 10 Nintendo Genres",
+       x = "Genre",
+       y = "Count")
+```
+  Starting with the most common values, Action indisputably the most popular. This makes sense, as Nintendo makes games for kids and action keeps their attention. General and Miscellaneous aren't counted for this calculation because they are far to wide a category to be able to act as a proper genre. For this reason we've given it 11 spots to compensate. After it is plat-former and 2d, which also make sense, as 2d games used to be the only games and platformer is a very common type, as are the rest of the values on this list.
+  
+  The least common has more than 10 values because the 9th place it tied between 13 different genres. All of the lower ranked on not exactly uncommon games, just games Nintendo wouldn't have a general interest in. Survival, snowboarding, historic, these just aren't exactly games you'd make for kids. Nintendo does have an older audience base, but their primary consumer has always been a younger audience.
+```{r}
+Developer_Counts <- BetterNintendo %>%
+  separate_rows(developers, sep = ", ") %>%
+  mutate(
+    developers = gsub("\\[|\\]", "", developers),
+    developers = trimws(developers),
+    developers = str_to_lower(developers)
+  ) %>%
+  group_by(developers) %>%
+  summarise(count = n()) %>%
+  arrange(count)
+
+Top10_Developers <- Developer_Counts %>%
+  slice_max(order_by = count, n = 10)
+
+min_count <- min(Developer_Counts$count)
+
+bottom_group <- Developer_Counts %>%
+  filter(count == min_count)
+
+total_bottom <- nrow(bottom_group)
+
+
+Bottom10_Devs <- Developer_Counts %>%
+  filter(count == min_count) %>%
+  slice_head(n = 10)
+```
+This code separates the Developers into their top ten and bottom ten most and least common. This is similarly to show common issues that will need to be addressed when comparing developers to genres.
+
+```{r}
+ggplot(Top10_Developers, aes(x = reorder(developers, count), y = count)) +
+  geom_bar(stat = "identity", fill = "red") +
+  coord_flip() +
+  labs(title = "Top 10 Nintendo Developers",
+       x = "Developer",
+       y = "Count")
+```
+  This graph shows a strange null value as an 11th spot, but is otherwise consistent. Nintendo is naturally the highest scorer with close friends Game Freak and Intelligent Systems after it. Nintendo Software technology is actually a different company under Nintendo, so it counts for this. Aside from that it appears the rest of the list are semi-regular co-developers of Nintendo games.
+```{r}
+ggplot(Bottom10_Devs, aes(x = reorder(developers, count), y = count)) +
+  geom_bar(stat = "identity", fill = "orange") +
+  coord_flip() +
+  labs(
+    title = "Bottom Nintendo Developers",
+    x = "Developer",
+    y = "Count",
+    caption = paste("Showing 10 developers out of", total_bottom,
+                    "tied for the lowest developer count (", min_count, ").")
+  )
+```
+  As is shown in this graph, there are many different developers who have only worked with Nintendo once, and it would be meaningless to include them in the calculations because a company that has only worked with Nintendo once will likely have worked on the same genre every time because there was only one time. Developers who have no worked with Nintendo at least four times will be excluded from the calculations.
+
+```{r}
+summary(BetterNintendo)
+```
+This summary is a basic overview of what is already known sans the user_score, where it tells us the min, max, mean, other statistics. The first few categories all use strings, though it is important to note that date COULD become numeric. The mean shows the overall average rating (around 7–8). It DOES show us just how tightly packed the general review are, though- with the first quartile and 3rd quartile being around the mean. Nintendo does seem to generally get reviews in that range.
+
+```{r}
+hist(BetterNintendo$user_score,
+     breaks = 100,
+     col = "blue", 
+     main = "Score Distribution", 
+     xlab = "Scores", 
+     border = "black")
+```
+This Histogram shows the general distribution of the scores. It shows the frequency tends to center around the 7-9 range, which makes sense given our approximately 7.7 mean of the user scores shown in the summary above.It makes sense that Nintendo, one of the largest gaming companies on the planet, makes games that are generally well received.
+
+The outlier is interesting, though, and checking to find the 2.0 on the end reveals it is Pokemon Home. Some research shows it had some problems on release, so it makes sense it would be so low. This shows that there are some values that need to be removed.
+```{r}
+BetterNintendo %>%
+  arrange(desc(user_score)) %>%
+  select(title, user_score, developers, genres) %>%
+  head(5)
+
+BetterNintendo %>%
+  arrange(user_score) %>%
+  select(title, user_score, developers, genres) %>%
+  head(5)
+```
+We can use this to find the top five highest rated Nintendo games in the data set. Three well known games, one moderately successful game, and one DLC for two characters. The DLC is helped by the fact Steve and Alex are some of the most anticipated Smash Bros characters of all time. It is surprising how many of the lowest rank games are Nintendo favored, such as Pokemon or mario kart. Fortunately, this data means that observations like Pokemone HOME are few and far between.
+
+```{r}
+Dev_Genre <- BetterNintendo %>%
+  filter(title != "Pokémon Home") %>%  
+  separate_rows(developers, sep = ", ") %>%
+  separate_rows(genres, sep = ", ") %>%
+  mutate(
+    developers = gsub("\\[|\\]", "", developers),
+    genres = gsub("\\[|\\]", "", genres),
+    developers = str_to_title(trimws(developers)),
+    genres = str_to_lower(trimws(genres)),
+    genres = ifelse(genres %in% c("general", "miscellaneous"), 
+                    "general/miscellaneous", genres)
+  ) %>%
+  filter(genres != "general/miscellaneous")
+
+
+Dev_Counts <- Dev_Genre %>%
+  group_by(developers) %>%
+  summarise(total_games = n(), .groups = "drop")
+
+Dev_Genre_Filtered <- Dev_Genre %>%
+  filter(developers %in% Dev_Counts$developers[Dev_Counts$total_games >= 4])
+
+
+Dev_Genre_Share <- Dev_Genre_Filtered %>%
+  group_by(developers, genres) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  group_by(developers) %>%
+  mutate(
+    total = sum(count),
+    share = count / total
+  )
+
+Dominant_Genres <- Dev_Genre_Share %>%
+  group_by(developers) %>%
+  filter(share == max(share)) %>%
+  mutate(
+    consistent = share >= 0.6
+  ) %>%
+  arrange(desc(share))
+
+Consistency_Summary <- Dominant_Genres %>%
+  group_by(developers) %>%
+  summarise(consistent = any(consistent), .groups = "drop") %>%
+  count(consistent)
+
+ggplot(Consistency_Summary, aes(x = consistent, y = n, fill = consistent)) +
+  geom_col(width = 0.6) +
+  scale_fill_manual(values = c("TRUE" = "darkred", "FALSE" = "gray70")) +
+  labs(
+    title = "Developer Genre Consistency (≥ 60%)",
+    x = "Consistent Genre Focus",
+    y = "Number of Developers",
+    fill = "Consistent?"
+  )
+```
+
+  This table cleans the Better_Nintendo table the same way the genre_count and developer_count did, then checks see if the developers work on the same game 60% or more of the time.This table makes it very obvious: No. Developers do not tend to work on the same genre with Nintendo. Pokemon HOME was removed for not being a game, and general/miscellaneous was removed for being to broad to check for consistency.
+
+## Results
+
+#### Analysis Method:
+
+  The genre and developer columns were cleaned to remove null values as well as to ensure the same developers were treated as the same developer. Then a variable was made which counted how many games each Developer had to ensure I wasn't taking developers with one or two games. After cutting down the developers to those with four games, the genres of each game were checked (already separated prior to this, so no issues with 'action, comedy' being treated as a separate check than 'action') and assigned a percentage to each developer for each genre. If any of the share values were greater than .6, the value would be true. Otherwise, false.
+  
+#### Reasoning Method
+
+  There was no specific process in choosing this method: it was just the one first found that worked. There may be other ways but they are currently unknown.
+  
+#### Explanation of findings
+
+  The answer to the question asked at the very beginning is no. Aside from a very select few developers the developers that worked a significant amount of times with Nintendo did not consistently work on the same genre. However, this does not necessarily prove Nintendo or developers on their own don't tend to work on the same genre- it only proves they don't tend to work on the same genre when working together.
+
+## Conclusions
+
+  The answer is shocking. Going into this, it was assumed that the answer would be yes, especially for companies like Game Freak, who typically only work with Nintendo on Pokemon games. In hindsight, however, there are of different reasons would regularly work with companies aside from genre. Several Pokemon spin off games would use entirely different game mechanics from normal Pokemon, so despite having the same genre Nintendo works with a company more familiar with that style of gaming. It's not genre so much as it is style of creation.
+  
+  There are limitations to this, however. This data contains a lot of DLC that may have impacted specific company's performances, the consistency check of 60% may have been a bit too high, and the fact several columns and rows were removed on account of null values may have also impacted the score. Checking with the original data set to could give different results, but that data set has problems of its own with null values and DLC and soundtracks. With a list so lopsidedly saying FALSE, it is fair to assume there is no correlation between developers and worked on genres.
+  
+  Future work would likely consist of removing dlc and repeatedly testing different consistency checks to see if the date changes. How low would the consistency check have to be for a grand majority to be labeled TRUE, for instance?
+
+## References
+
+ “Programming Skills for Data Science: Start Writing Code to Wrangle, Analyze, and Visualize Data with R”. Freeman and Ross
