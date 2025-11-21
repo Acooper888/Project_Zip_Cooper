@@ -1,5 +1,5 @@
 ---
-title: "Project 5 Deliverable"
+title: "Project Report"
 author: "Adam Cooper"
 date: "2025-11-09"
 output: html_document
@@ -14,7 +14,7 @@ library(lubridate)
 
 ## Summary
 
-  This deliverable consists of analyzing the data about various Nintendo games to answer the question if the developers that work with Nintendo regularly consistently work on the same genre. While doing this, data was cleaned to ensure no repeat variables. It takes in the developer and genre values, compares them, then returns a list of Boolean values to see if the data is consistent or not. If a Majority is TRUE, then yes. If not, then we will consider it not consistent.
+  This report consists of analyzing the data about various Nintendo games to answer the question if the developers that work with Nintendo regularly consistently work on the same genre. While doing this, data was cleaned to ensure no repeat variables. It takes in the developer and genre values, compares them, then returns a list of Boolean values to see if the data is consistent or not. If a Majority is TRUE, then yes. If not, then we will consider it not consistent.
   
   The answer was ultimately no, it was no consistent. This is likely because Nintendo prioritizes the making of the game as opposed to the genre of it.
 
@@ -275,3 +275,4 @@ ggplot(Consistency_Summary, aes(x = consistent, y = n, fill = consistent)) +
 ## References
 
  “Programming Skills for Data Science: Start Writing Code to Wrangle, Analyze, and Visualize Data with R”. Freeman and Ross
+
